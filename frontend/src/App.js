@@ -17,9 +17,6 @@ function App() {
       } catch (error) {
         console.error('Login error:', error);
       }
-    },
-    onError: (error) => {
-      console.error('Login error:', error);
     }
   });
 
