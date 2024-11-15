@@ -21,7 +21,7 @@ function App() {
   });
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !user) return;
 
     const newMessages = [...messages, { role: 'user', content: input }];
     setMessages(newMessages);
@@ -37,19 +37,40 @@ function App() {
     }
   };
 
+  // Si no hay usuario, solo mostrar el botón de login
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold mb-4">Welcome to Claude Notebook</h1>
+          <p className="mb-4">Please login to continue</p>
+          <button
+            onClick={login}
+            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Login with Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Interfaz principal solo si el usuario está autenticado
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow p-4">
-        {!user ? (
-          <button onClick={login} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            Login with Google
-          </button>
-        ) : (
+        <div className="flex items-center justify-between container mx-auto">
           <div className="flex items-center space-x-4">
             <img src={user.picture} className="w-8 h-8 rounded-full" alt="Profile" />
-            <span>{user.name}</span>
+            <span className="font-semibold">{user.name}</span>
           </div>
-        )}
+          <button
+            onClick={() => setUser(null)}
+            className="text-sm text-gray-600 hover:text-gray-800"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       <main className="container mx-auto p-4">
@@ -74,7 +95,7 @@ function App() {
             />
             <button
               onClick={sendMessage}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
             >
               Send
             </button>
