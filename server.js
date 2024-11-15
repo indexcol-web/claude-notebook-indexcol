@@ -7,6 +7,20 @@ require('dotenv').config();
 
 const app = express();
 
+const multer = require('multer');
+
+// Configuración de Multer para subida de archivos
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname)
+  }
+});
+
+const upload = multer({ storage: storage });
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -74,6 +88,39 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+// Nueva ruta para subir documentos
+app.post('/api/upload', upload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const documentInfo = {
+      id: Date.now().toString(),
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      path: req.file.path,
+      uploadDate: new Date()
+    };
+
+    res.json({
+      success: true,
+      document: {
+        id: documentInfo.id,
+        name: documentInfo.name,
+        type: documentInfo.type,
+        uploadDate: documentInfo.uploadDate
+      }
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Error processing document' });
+  }
+});
+
+
 
 // Todas las demás rutas sirven el index.html de React
 app.get('*', (req, res) => {
