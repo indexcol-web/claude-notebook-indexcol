@@ -31,15 +31,22 @@ app.get('/api/test', (req, res) => {
 // Google Auth route
 app.post('/api/auth/google', async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, userData } = req.body;
+    
+    // Verificar el token con Google
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
     });
-    const { email, name, picture } = ticket.getPayload();
-    res.json({ email, name, picture });
+
+    // Si llegamos aquí, la autenticación fue exitosa
+    res.json({
+      success: true,
+      user: userData
+    });
   } catch (error) {
-    res.status(401).json({ error: 'Authentication failed' });
+    console.error('Auth error:', error);
+    res.status(401).json({ error: 'Authentication failed', details: error.message });
   }
 });
 
