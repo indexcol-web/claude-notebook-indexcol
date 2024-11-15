@@ -28,6 +28,7 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is running!' });
 });
 
+
 // Google Auth route
 app.post('/api/auth/google', async (req, res) => {
   try {
@@ -39,16 +40,26 @@ app.post('/api/auth/google', async (req, res) => {
       audience: GOOGLE_CLIENT_ID,
     });
 
-    // Si llegamos aquí, la autenticación fue exitosa
-    res.json({
-      success: true,
-      user: userData
-    });
+    const payload = ticket.getPayload();
+    console.log("Auth payload:", payload);
+
+    if (payload.email === userData.email) {
+      res.json({
+        success: true,
+        user: userData
+      });
+    } else {
+      throw new Error('Email verification failed');
+    }
   } catch (error) {
     console.error('Auth error:', error);
-    res.status(401).json({ error: 'Authentication failed', details: error.message });
+    res.status(401).json({ 
+      error: 'Authentication failed', 
+      details: error.message 
+    });
   }
 });
+
 
 // OpenAI chat route
 app.post('/api/chat', async (req, res) => {
