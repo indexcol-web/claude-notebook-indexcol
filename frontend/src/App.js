@@ -8,16 +8,26 @@ function App() {
   const [input, setInput] = useState('');
 
   const login = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
+    onSuccess: async (credentialResponse) => {
       try {
-        const res = await axios.post('/api/auth/google', {
-          token: tokenResponse.access_token
+        // Obtener los detalles del usuario usando el token de acceso
+        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${credentialResponse.access_token}` }
         });
-        setUser(res.data);
+
+        // Enviar el token al backend
+        const res = await axios.post('/api/auth/google', {
+          token: credentialResponse.access_token,
+          userData: userInfo.data
+        });
+
+        setUser(userInfo.data);
+        console.log('Login successful:', userInfo.data);
       } catch (error) {
         console.error('Login error:', error);
       }
-    }
+    },
+    onError: (error) => console.error('Login Failed:', error)
   });
 
   const sendMessage = async () => {
@@ -45,7 +55,7 @@ function App() {
           <h1 className="text-2xl font-bold mb-4">Welcome to Claude Notebook</h1>
           <p className="mb-4">Please login to continue</p>
           <button
-            onClick={login}
+            onClick={() => login()}
             className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
             Login with Google
@@ -55,7 +65,6 @@ function App() {
     );
   }
 
-  // Interfaz principal solo si el usuario está autenticado
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow p-4">
