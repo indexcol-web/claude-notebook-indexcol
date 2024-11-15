@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 const OpenAI = require('openai');
 require('dotenv').config();
@@ -10,6 +11,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Servir archivos estáticos de React
+app.use(express.static(path.join(__dirname, 'frontend/build')));
+
 // Google OAuth setup
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -18,9 +22,6 @@ const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Serve static files
-app.use(express.static('public'));
 
 // Test route
 app.get('/api/test', (req, res) => {
@@ -56,6 +57,10 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Todas las demás rutas sirven el index.html de React
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
