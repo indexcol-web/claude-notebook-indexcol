@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+import React, { useState, useEffect } from 'react';
+import jwt_decode from 'jwt-decode';
 import axios from 'axios';
 
 function App() {
@@ -7,28 +7,47 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
 
-  const login = useGoogleLogin({
-    onSuccess: async (credentialResponse) => {
-      try {
-        // Obtener los detalles del usuario usando el token de acceso
-        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${credentialResponse.access_token}` }
-        });
+  useEffect(() => {
+    // Inicializar Google Sign In
+    const google = window.google;
+    if (google) {
+      google.accounts.id.initialize({
+        client_id: window.GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse
+      });
 
-        // Enviar el token al backend
-        const res = await axios.post('/api/auth/google', {
-          token: credentialResponse.access_token,
-          userData: userInfo.data
-        });
-
-        setUser(userInfo.data);
-        console.log('Login successful:', userInfo.data);
-      } catch (error) {
-        console.error('Login error:', error);
+      if (!user) {
+        google.accounts.id.renderButton(
+          document.getElementById("googleBtn"),
+          { theme: "outline", size: "large" }
+        );
       }
-    },
-    onError: (error) => console.error('Login Failed:', error)
-  });
+    }
+  }, [user]);
+
+  const handleCredentialResponse = async (response) => {
+    try {
+      const decodedToken = jwt_decode(response.credential);
+      console.log("Decoded token:", decodedToken);
+
+      const res = await axios.post('/api/auth/google', {
+        token: response.credential,
+        userData: decodedToken
+      });
+
+      if (res.data.success) {
+        setUser(decodedToken);
+        console.log("Login successful:", decodedToken);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    setMessages([]);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || !user) return;
@@ -47,19 +66,13 @@ function App() {
     }
   };
 
-  // Si no hay usuario, solo mostrar el botón de login
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold mb-4">Welcome to Claude Notebook</h1>
           <p className="mb-4">Please login to continue</p>
-          <button
-            onClick={() => login()}
-            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Login with Google
-          </button>
+          <div id="googleBtn"></div>
         </div>
       </div>
     );
@@ -74,7 +87,7 @@ function App() {
             <span className="font-semibold">{user.name}</span>
           </div>
           <button
-            onClick={() => setUser(null)}
+            onClick={logout}
             className="text-sm text-gray-600 hover:text-gray-800"
           >
             Logout
