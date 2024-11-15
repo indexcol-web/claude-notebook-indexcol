@@ -1,11 +1,10 @@
 {
   "name": "claude-notebook-indexcol",
   "version": "1.0.0",
-  "description": "NotebookLM clone with OpenAI integration",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "build": "cd frontend && npm install && npm run build",
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -13,8 +12,5 @@
     "dotenv": "^16.0.3",
     "openai": "^4.0.0",
     "google-auth-library": "^8.7.0"
-  },
-  "engines": {
-    "node": ">=14.0.0"
   }
 }
