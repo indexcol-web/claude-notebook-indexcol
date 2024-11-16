@@ -80,16 +80,41 @@ app.post('/api/auth/google', async (req, res) => {
 // OpenAI chat route
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, documentIds } = req.body;
+    
+    // Si se especifican documentos, obtener su contenido
+    let documentContext = '';
+    if (documentIds && documentIds.length > 0) {
+      const files = await Promise.all(
+        documentIds.map(id => bucket.file(id).getMetadata())
+      );
+      
+      documentContext = files
+        .map(([metadata]) => metadata.extractedText || '')
+        .join('\n\n');
+    }
+
+    // Crear el mensaje del sistema con el contexto
+    const systemMessage = {
+      role: 'system',
+      content: `You are an AI assistant analyzing documents. ${
+        documentContext ? 'Here is the context from the selected documents:\n\n' + documentContext : ''
+      }`
+    };
+
     const completion = await openai.chat.completions.create({
-      messages,
+      messages: [systemMessage, ...messages],
       model: "gpt-3.5-turbo",
     });
+
     res.json(completion.choices[0]);
   } catch (error) {
+    console.error('Chat error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
+
 
 // Ruta para obtener todos los documentos
 app.get('/api/documents', async (req, res) => {
