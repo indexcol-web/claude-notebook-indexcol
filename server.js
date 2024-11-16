@@ -10,7 +10,9 @@ require('dotenv').config();
 const app = express();
 
 // Configuración de Google Cloud Storage
-const storage = new Storage();
+const storage = new Storage({
+  credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+});
 const bucket = storage.bucket('claude-notebook-indexcol-storage');
 
 // Configuración de Multer para memoria
