@@ -179,6 +179,27 @@ async function extractText(buffer, mimetype) {
   return '';
 }
 
+// Función para extraer texto
+const pdfParse = require('pdf-parse');
+
+async function extractText(buffer, mimetype) {
+  try {
+    if (mimetype === 'application/pdf') {
+      const data = await pdfParse(buffer);
+      console.log('PDF text extracted, length:', data.text.length);
+      return data.text;
+    } else if (mimetype === 'text/plain') {
+      const text = buffer.toString('utf-8');
+      console.log('Text file extracted, length:', text.length);
+      return text;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting text:', error);
+    return '';
+  }
+}
+
 // Upload route
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
@@ -187,6 +208,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     }
 
     console.log('Starting file upload and text extraction');
+    console.log('File type:', req.file.mimetype);
 
     // Extraer texto del documento
     const extractedText = await extractText(req.file.buffer, req.file.mimetype);
@@ -196,14 +218,19 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     const file = bucket.file(filename);
 
     // Subir el archivo con metadata incluyendo el texto extraído
-    await file.save(req.file.buffer, {
+    const metadata = {
+      contentType: req.file.mimetype,
       metadata: {
-        contentType: req.file.mimetype,
-        extractedText: extractedText // Guardar el texto extraído en metadata
-      },
+        extractedText: extractedText
+      }
+    };
+
+    await file.save(req.file.buffer, {
+      metadata: metadata,
       public: true
     });
 
+    console.log('File uploaded with metadata');
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
 
     const documentInfo = {
@@ -215,7 +242,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
       hasText: extractedText.length > 0
     };
 
-    console.log('Upload successful');
+    console.log('Upload successful, returning response');
     res.json({
       success: true,
       document: documentInfo
