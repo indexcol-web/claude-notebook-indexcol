@@ -81,17 +81,29 @@ app.post('/api/auth/google', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, documentIds } = req.body;
+    console.log('Received request with documentIds:', documentIds);
     
     // Si se especifican documentos, obtener su contenido
     let documentContext = '';
     if (documentIds && documentIds.length > 0) {
+      console.log('Getting metadata for documents...');
       const files = await Promise.all(
-        documentIds.map(id => bucket.file(id).getMetadata())
+        documentIds.map(async (id) => {
+          console.log('Getting metadata for document:', id);
+          return bucket.file(id).getMetadata();
+        })
       );
       
       documentContext = files
-        .map(([metadata]) => metadata.extractedText || '')
+        .map(([metadata]) => {
+          console.log('Metadata:', metadata);
+          return metadata.metadata?.extractedText || '';
+        })
         .join('\n\n');
+      
+      console.log('Document context length:', documentContext.length);
+      // Mostrar los primeros 500 caracteres del contexto para verificar
+      console.log('Document context preview:', documentContext.substring(0, 500));
     }
 
     // Crear el mensaje del sistema con el contexto
