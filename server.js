@@ -209,10 +209,17 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
       }
     };
 
+    // Subir el archivo primero
     await file.save(req.file.buffer, {
-      metadata: metadata,
-      public: true
+      metadata: metadata
     });
+
+    // Hacer el bucket público a nivel de bucket en lugar de por archivo
+    try {
+      await bucket.makePublic();
+    } catch (error) {
+      console.log('Bucket is already public or could not be made public');
+    }
 
     console.log('File uploaded with metadata');
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
