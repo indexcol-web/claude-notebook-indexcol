@@ -1,15 +1,29 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+
 function DocumentUpload() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleFileSelect = (event) => {
-    setSelectedFile(event.target.files[0]);
-  };
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await axios.get('/api/documents');
+        setDocuments(response.data.documents);
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchDocuments();
+  }, []);
+
+  
 
   
 const handleUpload = async () => {
@@ -81,20 +95,34 @@ const handleUpload = async () => {
       </div>
 
       {documents.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold mb-2">Your Documents</h3>
-          <div className="space-y-2">
-            {documents.map((doc) => (
-              <div key={doc.id} className="border rounded p-4">
-                <h4 className="font-medium">{doc.name}</h4>
-                <p className="text-sm text-gray-500">
-                  Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
-                </p>
-              </div>
-            ))}
+  <div className="mt-4">
+    <h3 className="text-lg font-semibold mb-2">Your Documents</h3>
+    <div className="space-y-2">
+      {loading ? (
+        <p>Loading documents...</p>
+      ) : (
+        documents.map((doc) => (
+          <div key={doc.id} className="border rounded p-4">
+            <h4 className="font-medium">{doc.name}</h4>
+            <p className="text-sm text-gray-500">
+              Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
+            </p>
+            {doc.url && (
+              <a 
+                href={doc.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block"
+              >
+                View Document
+              </a>
+            )}
           </div>
-        </div>
+        ))
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 }
