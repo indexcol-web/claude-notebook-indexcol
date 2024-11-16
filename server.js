@@ -5,7 +5,27 @@ const { OAuth2Client } = require('google-auth-library');
 const OpenAI = require('openai');
 const { Storage } = require('@google-cloud/storage');
 const multer = require('multer');
+const pdfParse = require('pdf-parse');
 require('dotenv').config();
+
+// Función para extraer texto
+async function extractText(buffer, mimetype) {
+  try {
+    if (mimetype === 'application/pdf') {
+      const data = await pdfParse(buffer);
+      console.log('PDF text extracted, length:', data.text.length);
+      return data.text;
+    } else if (mimetype === 'text/plain') {
+      const text = buffer.toString('utf-8');
+      console.log('Text file extracted, length:', text.length);
+      return text;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting text:', error);
+    return '';
+  }
+}
 
 const app = express();
 
@@ -126,8 +146,6 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-
-
 // Ruta para obtener todos los documentos
 app.get('/api/documents', async (req, res) => {
   try {
@@ -165,40 +183,6 @@ app.delete('/api/documents/:fileName', async (req, res) => {
     res.status(500).json({ error: 'Error deleting document' });
   }
 });
-
-const pdfParse = require('pdf-parse');
-
-// Función para extraer texto
-async function extractText(buffer, mimetype) {
-  if (mimetype === 'application/pdf') {
-    const data = await pdfParse(buffer);
-    return data.text;
-  } else if (mimetype === 'text/plain') {
-    return buffer.toString('utf-8');
-  }
-  return '';
-}
-
-// Función para extraer texto
-const pdfParse = require('pdf-parse');
-
-async function extractText(buffer, mimetype) {
-  try {
-    if (mimetype === 'application/pdf') {
-      const data = await pdfParse(buffer);
-      console.log('PDF text extracted, length:', data.text.length);
-      return data.text;
-    } else if (mimetype === 'text/plain') {
-      const text = buffer.toString('utf-8');
-      console.log('Text file extracted, length:', text.length);
-      return text;
-    }
-    return '';
-  } catch (error) {
-    console.error('Error extracting text:', error);
-    return '';
-  }
-}
 
 // Upload route
 app.post('/api/upload', upload.single('document'), async (req, res) => {
