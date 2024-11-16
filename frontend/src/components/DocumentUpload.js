@@ -75,6 +75,22 @@ function DocumentUpload() {
       setUploading(false);
     }
   };
+
+
+  
+  const handleDelete = async (doc) => {
+  if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+    try {
+      await axios.delete(`/api/documents/${doc.id}`);
+      setDocuments(docs => docs.filter(d => d.id !== doc.id));
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Error deleting document. Please try again.');
+    }
+  }
+};
+
+
   
   return (
     <div className="space-y-4">
@@ -103,21 +119,31 @@ function DocumentUpload() {
             ) : (
               documents.map((doc) => (
                 <div key={doc.id} className="border rounded p-4">
-                  <h4 className="font-medium">{doc.name}</h4>
-                  <p className="text-sm text-gray-500">
-                    Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
-                  </p>
-                  {doc.url && (
-                    <a 
-                      href={doc.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block"
-                    >
-                      View Document
-                    </a>
-                  )}
-                </div>
+    <div className="flex justify-between items-start">
+      <div>
+        <h4 className="font-medium">{doc.name}</h4>
+        <p className="text-sm text-gray-500">
+          Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
+        </p>
+        {doc.url && (
+          <a 
+            href={doc.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block mr-2"
+          >
+            View Document
+          </a>
+        )}
+      </div>
+      <button
+        onClick={() => handleDelete(doc)}
+        className="text-red-500 hover:text-red-700 text-sm"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
               ))
             )}
           </div>
