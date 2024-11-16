@@ -7,6 +7,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
 
   useEffect(() => {
     const google = window.google;
