@@ -101,39 +101,44 @@ app.post('/api/auth/google', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, documentIds } = req.body;
-    console.log('Received request with documentIds:', documentIds);
+    console.log('Chat request received with documents:', documentIds);
     
-    // Si se especifican documentos, obtener su contenido
     let documentContext = '';
     if (documentIds && documentIds.length > 0) {
-      console.log('Getting metadata for documents...');
+      console.log('Getting metadata for documents:', documentIds);
+      
       const files = await Promise.all(
         documentIds.map(async (id) => {
-          console.log('Getting metadata for document:', id);
-          return bucket.file(id).getMetadata();
+          console.log('Looking for file:', id);
+          const [metadata] = await bucket.file(id).getMetadata();
+          console.log('Found metadata:', metadata);
+          return metadata;
         })
       );
       
       documentContext = files
-        .map(([metadata]) => {
-          console.log('Metadata:', metadata);
-          return metadata.metadata?.extractedText || '';
+        .map(metadata => {
+          const text = metadata.metadata?.extractedText || '';
+          console.log(`Found text of length: ${text.length}`);
+          return text;
         })
         .join('\n\n');
       
-      console.log('Document context length:', documentContext.length);
-      // Mostrar los primeros 500 caracteres del contexto para verificar
-      console.log('Document context preview:', documentContext.substring(0, 500));
+      console.log('Total context length:', documentContext.length);
+      if (documentContext.length > 0) {
+        console.log('Context preview:', documentContext.substring(0, 200) + '...');
+      }
     }
 
-    // Crear el mensaje del sistema con el contexto
     const systemMessage = {
       role: 'system',
       content: `You are an AI assistant analyzing documents. ${
-        documentContext ? 'Here is the context from the selected documents:\n\n' + documentContext : ''
+        documentContext ? 'Here is the context from the selected documents:\n\n' + documentContext : 
+        'No document context provided.'
       }`
     };
 
+    console.log('Sending request to OpenAI');
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
       model: "gpt-3.5-turbo",
@@ -152,9 +157,9 @@ app.get('/api/documents', async (req, res) => {
     const [files] = await bucket.getFiles();
     
     const documents = files.map(file => {
-      const name = decodeURIComponent(file.name.split('-').slice(1).join('-')); // Decodificar el nombre
+      const name = decodeURIComponent(file.name.split('-').slice(1).join('-'));
       return {
-        id: file.name,
+        id: file.name,  // Nombre completo del archivo como ID
         name: name,
         type: file.metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
@@ -162,6 +167,7 @@ app.get('/api/documents', async (req, res) => {
       };
     });
 
+    console.log('Retrieved documents:', documents);
     res.json({ documents });
   } catch (error) {
     console.error('Error getting documents:', error);
@@ -209,12 +215,10 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
       }
     };
 
-    // Subir el archivo primero
-    await file.save(req.file.buffer, {
-      metadata: metadata
-    });
+    // Subir el archivo
+    await file.save(req.file.buffer, metadata);
 
-    // Hacer el bucket público a nivel de bucket en lugar de por archivo
+    // Hacer el bucket público
     try {
       await bucket.makePublic();
     } catch (error) {
@@ -225,7 +229,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
 
     const documentInfo = {
-      id: filename,
+      id: filename,  // Nombre completo del archivo como ID
       name: decodeURIComponent(filename.split('-').slice(1).join('-')),
       type: req.file.mimetype,
       url: publicUrl,
@@ -233,7 +237,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
       hasText: extractedText.length > 0
     };
 
-    console.log('Upload successful, returning response');
+    console.log('Upload successful, returning:', documentInfo);
     res.json({
       success: true,
       document: documentInfo
