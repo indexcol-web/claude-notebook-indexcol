@@ -93,77 +93,51 @@ app.post('/api/chat', async (req, res) => {
 
 // Upload route with improved error handling
 app.post('/api/upload', upload.single('document'), async (req, res) => {
-  let responded = false;
-  
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     console.log('Starting file upload to GCS');
-    console.log('File details:', {
-      originalName: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype
-    });
+    
+    const filename = Date.now() + '-' + req.file.originalname;
+    const file = bucket.file(filename);
 
-    const blob = bucket.file(Date.now() + '-' + req.file.originalname);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
+    // Crear el stream y subir el archivo
+    await file.save(req.file.buffer, {
       metadata: {
         contentType: req.file.mimetype
       }
     });
 
-    blobStream.on('error', (error) => {
-      console.error('Blob stream error:', error);
-      if (!responded) {
-        responded = true;
-        res.status(500).json({ error: 'Error uploading file to storage' });
-      }
+    // Hacer el archivo público
+    await file.makePublic();
+
+    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+    
+    const documentInfo = {
+      id: Date.now().toString(),
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      url: publicUrl,
+      uploadDate: new Date()
+    };
+
+    console.log('Upload successful, returning response');
+    res.json({
+      success: true,
+      document: documentInfo
     });
 
-    blobStream.on('finish', async () => {
-      try {
-        console.log('File upload stream finished');
-        await blob.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${blob.name}`;
-        
-        const documentInfo = {
-          id: Date.now().toString(),
-          name: req.file.originalname,
-          type: req.file.mimetype,
-          url: publicUrl,
-          uploadDate: new Date()
-        };
-
-        console.log('Upload successful, returning response');
-        if (!responded) {
-          responded = true;
-          res.json({
-            success: true,
-            document: documentInfo
-          });
-        }
-      } catch (error) {
-        console.error('Error in finish handler:', error);
-        if (!responded) {
-          responded = true;
-          res.status(500).json({ error: 'Error processing uploaded file' });
-        }
-      }
-    });
-
-    console.log('Piping file buffer to blob stream');
-    blobStream.end(req.file.buffer);
   } catch (error) {
-    console.error('Upload route error:', error);
-    if (!responded) {
-      responded = true;
-      res.status(500).json({ error: 'Error processing document upload' });
-    }
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      error: 'Error uploading file',
+      details: error.message 
+    });
   }
 });
+
 
 // Todas las demás rutas sirven el index.html de React
 app.get('*', (req, res) => {
