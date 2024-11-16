@@ -113,6 +113,20 @@ app.get('/api/documents', async (req, res) => {
   }
 });
 
+// Ruta para eliminar un documento
+app.delete('/api/documents/:fileName', async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const file = bucket.file(fileName);
+    
+    await file.delete();
+    
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    res.status(500).json({ error: 'Error deleting document' });
+  }
+});
 
 // Upload route with improved error handling
 app.post('/api/upload', upload.single('document'), async (req, res) => {
