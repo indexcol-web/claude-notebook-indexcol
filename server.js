@@ -97,9 +97,10 @@ app.get('/api/documents', async (req, res) => {
     const [files] = await bucket.getFiles();
     
     const documents = files.map(file => {
+      const name = decodeURIComponent(file.name.split('-').slice(1).join('-')); // Decodificar el nombre
       return {
         id: file.name,
-        name: file.name.split('-').slice(1).join('-'), // Removemos el timestamp del nombre
+        name: name,
         type: file.metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
         uploadDate: file.metadata.timeCreated
@@ -128,39 +129,34 @@ app.delete('/api/documents/:fileName', async (req, res) => {
   }
 });
 
-// Upload route with improved error handling
+// Upload route
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('Starting file upload to GCS');
-    
-    const filename = Date.now() + '-' + req.file.originalname;
+    const filename = Date.now() + '-' + encodeURIComponent(req.file.originalname);
     const file = bucket.file(filename);
 
-    // Crear el stream y subir el archivo
+    // Subir el archivo con metadata público
     await file.save(req.file.buffer, {
       metadata: {
         contentType: req.file.mimetype
-      }
+      },
+      public: true
     });
 
-    // Hacer el archivo público
-    await file.makePublic();
-
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
-    
+
     const documentInfo = {
-      id: Date.now().toString(),
-      name: req.file.originalname,
+      id: filename,
+      name: decodeURIComponent(filename.split('-').slice(1).join('-')), // Para mostrar el nombre original
       type: req.file.mimetype,
       url: publicUrl,
       uploadDate: new Date()
     };
 
-    console.log('Upload successful, returning response');
     res.json({
       success: true,
       document: documentInfo
@@ -174,7 +170,6 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     });
   }
 });
-
 
 // Todas las demás rutas sirven el index.html de React
 app.get('*', (req, res) => {
