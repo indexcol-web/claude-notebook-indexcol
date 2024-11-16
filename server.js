@@ -154,6 +154,19 @@ app.delete('/api/documents/:fileName', async (req, res) => {
   }
 });
 
+const pdfParse = require('pdf-parse');
+
+// Función para extraer texto
+async function extractText(buffer, mimetype) {
+  if (mimetype === 'application/pdf') {
+    const data = await pdfParse(buffer);
+    return data.text;
+  } else if (mimetype === 'text/plain') {
+    return buffer.toString('utf-8');
+  }
+  return '';
+}
+
 // Upload route
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
@@ -161,13 +174,20 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    console.log('Starting file upload and text extraction');
+
+    // Extraer texto del documento
+    const extractedText = await extractText(req.file.buffer, req.file.mimetype);
+    console.log('Extracted text length:', extractedText.length);
+
     const filename = Date.now() + '-' + encodeURIComponent(req.file.originalname);
     const file = bucket.file(filename);
 
-    // Subir el archivo con metadata público
+    // Subir el archivo con metadata incluyendo el texto extraído
     await file.save(req.file.buffer, {
       metadata: {
-        contentType: req.file.mimetype
+        contentType: req.file.mimetype,
+        extractedText: extractedText // Guardar el texto extraído en metadata
       },
       public: true
     });
@@ -176,12 +196,14 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
 
     const documentInfo = {
       id: filename,
-      name: decodeURIComponent(filename.split('-').slice(1).join('-')), // Para mostrar el nombre original
+      name: decodeURIComponent(filename.split('-').slice(1).join('-')),
       type: req.file.mimetype,
       url: publicUrl,
-      uploadDate: new Date()
+      uploadDate: new Date(),
+      hasText: extractedText.length > 0
     };
 
+    console.log('Upload successful');
     res.json({
       success: true,
       document: documentInfo
