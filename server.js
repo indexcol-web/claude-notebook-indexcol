@@ -93,6 +93,8 @@ app.post('/api/chat', async (req, res) => {
 
 // Upload route with improved error handling
 app.post('/api/upload', upload.single('document'), async (req, res) => {
+  let responded = false;
+  
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -115,7 +117,10 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
 
     blobStream.on('error', (error) => {
       console.error('Blob stream error:', error);
-      res.status(500).json({ error: 'Error uploading file to storage' });
+      if (!responded) {
+        responded = true;
+        res.status(500).json({ error: 'Error uploading file to storage' });
+      }
     });
 
     blobStream.on('finish', async () => {
@@ -133,13 +138,19 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
         };
 
         console.log('Upload successful, returning response');
-        res.json({
-          success: true,
-          document: documentInfo
-        });
+        if (!responded) {
+          responded = true;
+          res.json({
+            success: true,
+            document: documentInfo
+          });
+        }
       } catch (error) {
         console.error('Error in finish handler:', error);
-        res.status(500).json({ error: 'Error processing uploaded file' });
+        if (!responded) {
+          responded = true;
+          res.status(500).json({ error: 'Error processing uploaded file' });
+        }
       }
     });
 
@@ -147,7 +158,10 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     blobStream.end(req.file.buffer);
   } catch (error) {
     console.error('Upload route error:', error);
-    res.status(500).json({ error: 'Error processing document upload' });
+    if (!responded) {
+      responded = true;
+      res.status(500).json({ error: 'Error processing document upload' });
+    }
   }
 });
 
