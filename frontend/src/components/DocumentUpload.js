@@ -10,32 +10,34 @@ function DocumentUpload() {
     setSelectedFile(event.target.files[0]);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
+const handleUpload = async () => {
+  if (!selectedFile) return;
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('document', selectedFile);
+  setUploading(true);
+  const formData = new FormData();
+  formData.append('document', selectedFile);
 
-    try {
-      const response = await axios.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+  try {
+    const response = await axios.post('/api/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 30000 // 30 segundos de timeout
+    });
 
-      if (response.data.success) {
-        setDocuments([...documents, response.data.document]);
-        setSelectedFile(null);
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Error uploading document: ' + error.message);
-    } finally {
-      setUploading(false);
+    if (response.data.success) {
+      setDocuments([...documents, response.data.document]);
+      setSelectedFile(null);
     }
-  };
-
+  } catch (error) {
+    console.error('Upload error:', error);
+    const errorMessage = error.response?.data?.error || error.message || 'Error uploading document';
+    alert(`Error uploading document: ${errorMessage}`);
+  } finally {
+    setUploading(false);
+  }
+};
+  
   return (
     <div className="space-y-4">
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
