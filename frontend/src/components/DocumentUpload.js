@@ -76,19 +76,18 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
     }
   };
   
-  const handleDelete = async (doc) => {
-    if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
-      try {
-        await axios.delete(`/api/documents/${doc.id}`);
-        setDocuments(docs => docs.filter(d => d.id !== doc.id));
-        // También eliminar de los documentos seleccionados si estaba seleccionado
-        setSelectedDocuments(prev => prev.filter(id => id !== doc.id));
-      } catch (error) {
-        console.error('Error deleting document:', error);
-        alert('Error deleting document. Please try again.');
-      }
+const handleDelete = async (doc) => {
+  if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+    try {
+      console.log('Attempting to delete document:', doc);
+      await axios.delete(`/api/documents/${encodeURIComponent(doc.id)}`);
+      setDocuments(docs => docs.filter(d => d.id !== doc.id));
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Error deleting document. Please try again.');
     }
-  };
+  }
+};
   
   return (
     <div className="space-y-4">
@@ -116,47 +115,47 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
               <p>Loading documents...</p>
             ) : (
               documents.map((doc) => (
-                <div key={doc.id} className="border rounded p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start">
-                      <input
-                        type="checkbox"
-                        checked={selectedDocuments.includes(doc.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedDocuments([...selectedDocuments, doc.id]);
-                          } else {
-                            setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
-                          }
-                        }}
-                        className="mt-1 mr-2"
-                      />
-                      <div>
-                        <h4 className="font-medium">{doc.name}</h4>
-                        <p className="text-sm text-gray-500">
-                          Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
-                        </p>
-                        {doc.url && (
-                          <a 
-                            href={doc.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block mr-2"
-                          >
-                            View Document
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(doc)}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
+  <div key={doc.id} className="border rounded p-4">
+    <div className="flex justify-between items-start">
+      <div className="flex items-start">
+        <input
+          type="checkbox"
+          checked={selectedDocuments.includes(doc.id)}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedDocuments([...selectedDocuments, doc.id]);
+            } else {
+              setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
+            }
+          }}
+          className="mt-1 mr-2"
+        />
+        <div>
+          <h4 className="font-medium">{doc.name}</h4>
+          <p className="text-sm text-gray-500">
+            Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
+          </p>
+          {doc.url && (
+            <a 
+              href={doc.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block mr-2"
+            >
+              View Document
+            </a>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => handleDelete(doc)} // Pasamos todo el objeto doc
+        className="text-red-500 hover:text-red-700 text-sm"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+))
             )}
           </div>
         </div>
