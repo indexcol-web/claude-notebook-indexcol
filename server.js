@@ -157,9 +157,9 @@ app.get('/api/documents', async (req, res) => {
     const [files] = await bucket.getFiles();
     
     const documents = files.map(file => {
-      const name = decodeURIComponent(file.name.split('-').slice(1).join('-'));
+      const name = decodeURIComponent(file.name.split('-').slice(1).join('-')); // Decodificar el nombre
       return {
-        id: file.name,  // Nombre completo del archivo como ID
+        id: file.name,  // Usamos el nombre completo del archivo
         name: name,
         type: file.metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
@@ -228,14 +228,14 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     console.log('File uploaded with metadata');
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
 
-    const documentInfo = {
-      id: filename,  // Nombre completo del archivo como ID
-      name: decodeURIComponent(filename.split('-').slice(1).join('-')),
-      type: req.file.mimetype,
-      url: publicUrl,
-      uploadDate: new Date(),
-      hasText: extractedText.length > 0
-    };
+const documentInfo = {
+  id: filename,  // Usamos el nombre completo del archivo como ID
+  name: decodeURIComponent(filename.split('-').slice(1).join('-')),
+  type: req.file.mimetype,
+  url: publicUrl,
+  uploadDate: new Date(),
+  hasText: extractedText.length > 0
+};
 
     console.log('Upload successful, returning:', documentInfo);
     res.json({
