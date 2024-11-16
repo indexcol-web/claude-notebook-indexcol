@@ -95,7 +95,10 @@ const sendMessage = async () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-bold mb-4">Document Analysis</h2>
-            <DocumentUpload />
+            <DocumentUpload 
+              selectedDocuments={selectedDocuments} 
+              setSelectedDocuments={setSelectedDocuments}
+            />
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
