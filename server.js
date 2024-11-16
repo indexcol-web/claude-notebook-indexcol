@@ -3,29 +3,24 @@ const cors = require('cors');
 const path = require('path');
 const { OAuth2Client } = require('google-auth-library');
 const OpenAI = require('openai');
+const { Storage } = require('@google-cloud/storage');
+const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
 
-const multer = require('multer');
+// Configuración de Google Cloud Storage
+const storage = new Storage();
+const bucket = storage.bucket('claude-notebook-indexcol-storage');
 
-// Configuración de Multer para subida de archivos
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname)
-  }
+// Configuración de Multer para memoria
+const upload = multer({
+  storage: multer.memoryStorage()
 });
-
-const upload = multer({ storage: storage });
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Servir archivos estáticos de React
 app.use(express.static(path.join(__dirname, 'frontend/build')));
 
 // Google OAuth setup
@@ -42,7 +37,6 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is running!' });
 });
 
-
 // Google Auth route
 app.post('/api/auth/google', async (req, res) => {
   try {
@@ -53,10 +47,8 @@ app.post('/api/auth/google', async (req, res) => {
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
     });
-
     const payload = ticket.getPayload();
     console.log("Auth payload:", payload);
-
     if (payload.email === userData.email) {
       res.json({
         success: true,
@@ -74,7 +66,6 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-
 // OpenAI chat route
 app.post('/api/chat', async (req, res) => {
   try {
@@ -89,38 +80,47 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-
-// Nueva ruta para subir documentos
+// Ruta de subida de documentos
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const documentInfo = {
-      id: Date.now().toString(),
-      name: req.file.originalname,
-      type: req.file.mimetype,
-      path: req.file.path,
-      uploadDate: new Date()
-    };
+    const blob = bucket.file(Date.now() + '-' + req.file.originalname);
+    const blobStream = blob.createWriteStream();
 
-    res.json({
-      success: true,
-      document: {
-        id: documentInfo.id,
-        name: documentInfo.name,
-        type: documentInfo.type,
-        uploadDate: documentInfo.uploadDate
-      }
+    blobStream.on('error', (error) => {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Error uploading file' });
     });
+
+    blobStream.on('finish', async () => {
+      // Hacer el archivo público
+      await blob.makePublic();
+
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+
+      const documentInfo = {
+        id: Date.now().toString(),
+        name: req.file.originalname,
+        type: req.file.mimetype,
+        url: publicUrl,
+        uploadDate: new Date()
+      };
+
+      res.json({
+        success: true,
+        document: documentInfo
+      });
+    });
+
+    blobStream.end(req.file.buffer);
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Error processing document' });
   }
 });
-
-
 
 // Todas las demás rutas sirven el index.html de React
 app.get('*', (req, res) => {
