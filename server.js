@@ -91,6 +91,29 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Ruta para obtener todos los documentos
+app.get('/api/documents', async (req, res) => {
+  try {
+    const [files] = await bucket.getFiles();
+    
+    const documents = files.map(file => {
+      return {
+        id: file.name,
+        name: file.name.split('-').slice(1).join('-'), // Removemos el timestamp del nombre
+        type: file.metadata.contentType,
+        url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
+        uploadDate: file.metadata.timeCreated
+      };
+    });
+
+    res.json({ documents });
+  } catch (error) {
+    console.error('Error getting documents:', error);
+    res.status(500).json({ error: 'Error getting documents' });
+  }
+});
+
+
 // Upload route with improved error handling
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
