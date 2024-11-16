@@ -44,22 +44,23 @@ function App() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || !user) return;
+const sendMessage = async () => {
+  if (!input.trim() || !user) return;
 
-    const newMessages = [...messages, { role: 'user', content: input }];
-    setMessages(newMessages);
-    setInput('');
+  const newMessages = [...messages, { role: 'user', content: input }];
+  setMessages(newMessages);
+  setInput('');
 
-    try {
-      const response = await axios.post('/api/chat', {
-        messages: newMessages
-      });
-      setMessages([...newMessages, response.data.message]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
+  try {
+    const response = await axios.post('/api/chat', {
+      messages: newMessages,
+      documentIds: selectedDocuments
+    });
+    setMessages([...newMessages, response.data.message]);
+  } catch (error) {
+    console.error('Error sending message:', error);
+  }
+};
 
   if (!user) {
     return (
