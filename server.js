@@ -9,17 +9,6 @@ require('dotenv').config();
 
 const app = express();
 
-// Configuración de Google Cloud Storage
-const storage = new Storage({
-  credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
-});
-const bucket = storage.bucket('claude-notebook-indexcol-storage');
-
-// Configuración de Multer para memoria
-const upload = multer({
-  storage: multer.memoryStorage()
-});
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -33,6 +22,26 @@ const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Configuración de Multer para memoria
+const upload = multer({
+  storage: multer.memoryStorage()
+});
+
+// Google Cloud Storage setup
+const BUCKET_NAME = 'claude-notebook-indexcol-storage';
+
+let storage;
+try {
+  storage = new Storage({
+    credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+  });
+  console.log('Google Cloud Storage initialized successfully');
+} catch (error) {
+  console.error('Error initializing Google Cloud Storage:', error);
+}
+
+const bucket = storage.bucket(BUCKET_NAME);
 
 // Test route
 app.get('/api/test', (req, res) => {
@@ -82,45 +91,63 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Ruta de subida de documentos
+// Upload route with improved error handling
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    console.log('Starting file upload to GCS');
+    console.log('File details:', {
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
     const blob = bucket.file(Date.now() + '-' + req.file.originalname);
-    const blobStream = blob.createWriteStream();
+    const blobStream = blob.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType: req.file.mimetype
+      }
+    });
 
     blobStream.on('error', (error) => {
-      console.error('Upload error:', error);
-      res.status(500).json({ error: 'Error uploading file' });
+      console.error('Blob stream error:', error);
+      res.status(500).json({ error: 'Error uploading file to storage' });
     });
 
     blobStream.on('finish', async () => {
-      // Hacer el archivo público
-      await blob.makePublic();
+      try {
+        console.log('File upload stream finished');
+        await blob.makePublic();
+        const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${blob.name}`;
+        
+        const documentInfo = {
+          id: Date.now().toString(),
+          name: req.file.originalname,
+          type: req.file.mimetype,
+          url: publicUrl,
+          uploadDate: new Date()
+        };
 
-      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
-
-      const documentInfo = {
-        id: Date.now().toString(),
-        name: req.file.originalname,
-        type: req.file.mimetype,
-        url: publicUrl,
-        uploadDate: new Date()
-      };
-
-      res.json({
-        success: true,
-        document: documentInfo
-      });
+        console.log('Upload successful, returning response');
+        res.json({
+          success: true,
+          document: documentInfo
+        });
+      } catch (error) {
+        console.error('Error in finish handler:', error);
+        res.status(500).json({ error: 'Error processing uploaded file' });
+      }
     });
 
+    console.log('Piping file buffer to blob stream');
     blobStream.end(req.file.buffer);
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Error processing document' });
+    console.error('Upload route error:', error);
+    res.status(500).json({ error: 'Error processing document upload' });
   }
 });
 
