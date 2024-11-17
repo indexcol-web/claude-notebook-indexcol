@@ -8,25 +8,6 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 require('dotenv').config();
 
-// Función para extraer texto
-async function extractText(buffer, mimetype) {
-  try {
-    if (mimetype === 'application/pdf') {
-      const data = await pdfParse(buffer);
-      console.log('PDF text extracted, length:', data.text.length);
-      return data.text;
-    } else if (mimetype === 'text/plain') {
-      const text = buffer.toString('utf-8');
-      console.log('Text file extracted, length:', text.length);
-      return text;
-    }
-    return '';
-  } catch (error) {
-    console.error('Error extracting text:', error);
-    return '';
-  }
-}
-
 const app = express();
 
 // Middleware
@@ -47,6 +28,22 @@ const openai = new OpenAI({
 const upload = multer({
   storage: multer.memoryStorage()
 });
+
+// Función para extraer texto
+async function extractText(buffer, mimetype) {
+  try {
+    if (mimetype === 'application/pdf') {
+      const data = await pdfParse(buffer);
+      return data.text;
+    } else if (mimetype === 'text/plain') {
+      return buffer.toString('utf-8');
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting text:', error);
+    return '';
+  }
+}
 
 // Google Cloud Storage setup
 const BUCKET_NAME = 'claude-notebook-indexcol-storage';
@@ -73,13 +70,12 @@ app.post('/api/auth/google', async (req, res) => {
   try {
     const { token, userData } = req.body;
     
-    // Verificar el token con Google
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    console.log("Auth payload:", payload);
+    
     if (payload.email === userData.email) {
       res.json({
         success: true,
@@ -97,48 +93,119 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-// OpenAI chat route
+// Upload route
+app.post('/api/upload', upload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const extractedText = await extractText(req.file.buffer, req.file.mimetype);
+    console.log('Extracted text length:', extractedText.length);
+
+    const filename = Date.now() + '-' + encodeURIComponent(req.file.originalname);
+    const file = bucket.file(filename);
+
+    // Guardar archivo con metadata
+    await file.save(req.file.buffer, {
+      metadata: {
+        contentType: req.file.mimetype,
+        metadata: {
+          extractedText: extractedText
+        }
+      },
+      public: true
+    });
+
+    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+
+    const documentInfo = {
+      id: filename,
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      url: publicUrl,
+      uploadDate: new Date()
+    };
+
+    res.json({
+      success: true,
+      document: documentInfo
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Error uploading file' });
+  }
+});
+
+// Get documents route
+app.get('/api/documents', async (req, res) => {
+  try {
+    const [files] = await bucket.getFiles();
+    
+    const documents = files.map(file => ({
+      id: file.name,
+      name: decodeURIComponent(file.name.split('-').slice(1).join('-')),
+      type: file.metadata.contentType,
+      url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
+      uploadDate: file.metadata.timeCreated
+    }));
+
+    res.json({ documents });
+  } catch (error) {
+    console.error('Error getting documents:', error);
+    res.status(500).json({ error: 'Error getting documents' });
+  }
+});
+
+// Delete document route
+app.delete('/api/documents/:fileName', async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const file = bucket.file(decodeURIComponent(fileName));
+    
+    const [exists] = await file.exists();
+    if (!exists) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    await file.delete();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ error: 'Error deleting file' });
+  }
+});
+
+// Chat route
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, documentIds } = req.body;
-    console.log('Chat request received with documents:', documentIds);
     
     let documentContext = '';
     if (documentIds && documentIds.length > 0) {
-      console.log('Getting metadata for documents:', documentIds);
-      
       const files = await Promise.all(
         documentIds.map(async (id) => {
-          console.log('Looking for file:', id);
-          const [metadata] = await bucket.file(id).getMetadata();
-          console.log('Found metadata:', metadata);
+          const [metadata] = await bucket.file(decodeURIComponent(id)).getMetadata();
           return metadata;
         })
       );
       
       documentContext = files
-        .map(metadata => {
-          const text = metadata.metadata?.extractedText || '';
-          console.log(`Found text of length: ${text.length}`);
-          return text;
-        })
+        .map(metadata => metadata.metadata?.extractedText || '')
+        .filter(text => text.length > 0)
         .join('\n\n');
-      
-      console.log('Total context length:', documentContext.length);
-      if (documentContext.length > 0) {
-        console.log('Context preview:', documentContext.substring(0, 200) + '...');
-      }
     }
 
     const systemMessage = {
       role: 'system',
-      content: `You are an AI assistant analyzing documents. ${
-        documentContext ? 'Here is the context from the selected documents:\n\n' + documentContext : 
-        'No document context provided.'
+      content: `You are a helpful assistant analyzing documents. ${
+        documentContext 
+          ? 'Please use the following document content to answer questions:\n\n' + documentContext
+          : 'No documents are currently selected.'
       }`
     };
 
-    console.log('Sending request to OpenAI');
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
       model: "gpt-3.5-turbo",
@@ -151,122 +218,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Ruta para obtener todos los documentos
-app.get('/api/documents', async (req, res) => {
-  try {
-    const [files] = await bucket.getFiles();
-    
-    const documents = files.map(file => {
-      const name = decodeURIComponent(file.name.split('-').slice(1).join('-'));
-      return {
-        id: file.name,  // Nombre completo del archivo como ID
-        name: name,
-        type: file.metadata.contentType,
-        url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
-        uploadDate: file.metadata.timeCreated
-      };
-    });
-
-    console.log('Retrieved documents:', documents);
-    res.json({ documents });
-  } catch (error) {
-    console.error('Error getting documents:', error);
-    res.status(500).json({ error: 'Error getting documents' });
-  }
-});
-
-// Ruta para eliminar un documento
-app.delete('/api/documents/:fileName', async (req, res) => {
-  try {
-    // No decodificamos el fileName, lo usamos tal como viene
-    const fileName = req.params.fileName;
-    console.log('Raw fileName received:', fileName);
-    console.log('Attempting to delete file:', fileName);
-    
-    const file = bucket.file(fileName);
-    const [exists] = await file.exists();
-    
-    if (!exists) {
-      console.log('File not found:', fileName);
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
-    await file.delete();
-    console.log('File deleted successfully:', fileName);
-    
-    res.json({ success: true, message: 'Document deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting document:', error);
-    res.status(500).json({ 
-      error: 'Error deleting document',
-      details: error.message 
-    });
-  }
-});
-
-// Upload route
-app.post('/api/upload', upload.single('document'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    console.log('Starting file upload and text extraction');
-    console.log('File type:', req.file.mimetype);
-
-    // Extraer texto del documento
-    const extractedText = await extractText(req.file.buffer, req.file.mimetype);
-    console.log('Extracted text length:', extractedText.length);
-
-    const filename = Date.now() + '-' + encodeURIComponent(req.file.originalname);
-    const file = bucket.file(filename);
-
-    // Subir el archivo con metadata incluyendo el texto extraído
-    const metadata = {
-      contentType: req.file.mimetype,
-      metadata: {
-        extractedText: extractedText
-      }
-    };
-
-    // Subir el archivo
-    await file.save(req.file.buffer, metadata);
-
-    // Hacer el bucket público
-    try {
-      await bucket.makePublic();
-    } catch (error) {
-      console.log('Bucket is already public or could not be made public');
-    }
-
-    console.log('File uploaded with metadata');
-    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
-
-    const documentInfo = {
-      id: filename,  // Nombre completo del archivo como ID
-      name: decodeURIComponent(filename.split('-').slice(1).join('-')),
-      type: req.file.mimetype,
-      url: publicUrl,
-      uploadDate: new Date(),
-      hasText: extractedText.length > 0
-    };
-
-    console.log('Upload successful, returning:', documentInfo);
-    res.json({
-      success: true,
-      document: documentInfo
-    });
-
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ 
-      error: 'Error uploading file',
-      details: error.message 
-    });
-  }
-});
-
-// Todas las demás rutas sirven el index.html de React
+// Catch all route for React
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
 });
