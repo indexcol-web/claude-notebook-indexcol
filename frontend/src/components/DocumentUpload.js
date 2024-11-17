@@ -79,8 +79,9 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
 const handleDelete = async (doc) => {
   if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
     try {
-      console.log('Attempting to delete document:', doc);
-      await axios.delete(`/api/documents/${encodeURIComponent(doc.id)}`);
+      // No necesitamos codificar de nuevo, usamos el id tal como está
+      console.log('Deleting document with id:', doc.id);
+      await axios.delete(`/api/documents/${doc.id}`);
       setDocuments(docs => docs.filter(d => d.id !== doc.id));
     } catch (error) {
       console.error('Error deleting document:', error);
