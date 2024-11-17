@@ -7,7 +7,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
 
   useEffect(() => {
     const google = window.google;
@@ -29,8 +28,7 @@ function App() {
   const handleCredentialResponse = async (response) => {
     try {
       const decodedToken = jwt_decode(response.credential);
-      console.log("Decoded token:", decodedToken);
-
+      
       const res = await axios.post('/api/auth/google', {
         token: response.credential,
         userData: decodedToken
@@ -52,10 +50,8 @@ function App() {
     setInput('');
 
     try {
-      console.log('Sending message with documents:', selectedDocuments);
       const response = await axios.post('/api/chat', {
-        messages: newMessages,
-        documentIds: selectedDocuments
+        messages: newMessages
       });
       
       if (response.data.message) {
@@ -103,10 +99,7 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-bold mb-4">Document Analysis</h2>
-            <DocumentUpload 
-              selectedDocuments={selectedDocuments}
-              setSelectedDocuments={setSelectedDocuments}
-            />
+            <DocumentUpload />
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
