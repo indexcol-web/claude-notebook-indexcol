@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
+function DocumentUpload() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const response = await axios.get('/api/documents');
-        setDocuments(response.data.documents);
-      } catch (error) {
-        console.error('Error fetching documents:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDocuments();
   }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await axios.get('/api/documents');
+      setDocuments(response.data.documents);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFileSelect = (event) => {
     setSelectedFile(event.target.files[0]);
@@ -41,8 +41,7 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
       });
 
       if (response.data.success) {
-        const newDoc = response.data.document;
-        setDocuments(prev => [...prev, newDoc]);
+        await fetchDocuments(); // Recargar la lista después de subir
         setSelectedFile(null);
       }
     } catch (error) {
@@ -56,9 +55,8 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
   const handleDelete = async (doc) => {
     if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
       try {
-        await axios.delete(`/api/documents/${encodeURIComponent(doc.id)}`);
-        setDocuments(docs => docs.filter(d => d.id !== doc.id));
-        setSelectedDocuments(prev => prev.filter(id => id !== doc.id));
+        await axios.delete(`/api/documents/${doc.id}`);
+        await fetchDocuments(); // Recargar la lista después de borrar
       } catch (error) {
         console.error('Error deleting document:', error);
         alert('Error deleting document. Please try again.');
@@ -92,45 +90,27 @@ function DocumentUpload({ selectedDocuments, setSelectedDocuments }) {
               <p>Loading documents...</p>
             ) : (
               documents.map((doc) => (
-                <div key={doc.id} className="border rounded p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedDocuments.includes(doc.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedDocuments([...selectedDocuments, doc.id]);
-                          } else {
-                            setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
-                          }
-                        }}
-                        className="mt-1"
-                      />
-                      <div>
-                        <h4 className="font-medium">{doc.name}</h4>
-                        <p className="text-sm text-gray-500">
-                          Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
-                        </p>
-                        {doc.url && (
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block"
-                          >
-                            View Document
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(doc)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                <div key={doc.id} className="border rounded p-4 flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium">{doc.name}</h4>
+                    <p className="text-sm text-gray-500">
+                      Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
+                    </p>
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block"
                     >
-                      Delete
-                    </button>
+                      View Document
+                    </a>
                   </div>
+                  <button
+                    onClick={() => handleDelete(doc)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Delete
+                  </button>
                 </div>
               ))
             )}
