@@ -44,23 +44,31 @@ function App() {
     }
   };
 
-const sendMessage = async () => {
-  if (!input.trim() || !user) return;
+  const sendMessage = async () => {
+    if (!input.trim() || !user) return;
 
-  const newMessages = [...messages, { role: 'user', content: input }];
-  setMessages(newMessages);
-  setInput('');
+    const newMessages = [...messages, { role: 'user', content: input }];
+    setMessages(newMessages);
+    setInput('');
 
-  try {
-    const response = await axios.post('/api/chat', {
-      messages: newMessages,
-      documentIds: selectedDocuments
-    });
-    setMessages([...newMessages, response.data.message]);
-  } catch (error) {
-    console.error('Error sending message:', error);
-  }
-};
+    try {
+      console.log('Sending message with documents:', selectedDocuments);
+      const response = await axios.post('/api/chat', {
+        messages: newMessages,
+        documentIds: selectedDocuments
+      });
+      
+      if (response.data.message) {
+        setMessages([...newMessages, response.data.message]);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages([...newMessages, { 
+        role: 'assistant', 
+        content: 'Sorry, there was an error processing your request.' 
+      }]);
+    }
+  };
 
   if (!user) {
     return (
@@ -96,7 +104,7 @@ const sendMessage = async () => {
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-bold mb-4">Document Analysis</h2>
             <DocumentUpload 
-              selectedDocuments={selectedDocuments} 
+              selectedDocuments={selectedDocuments}
               setSelectedDocuments={setSelectedDocuments}
             />
           </div>
