@@ -178,7 +178,9 @@ app.get('/api/documents', async (req, res) => {
 // Ruta para eliminar un documento
 app.delete('/api/documents/:fileName', async (req, res) => {
   try {
-    const fileName = decodeURIComponent(req.params.fileName);
+    // No decodificamos el fileName, lo usamos tal como viene
+    const fileName = req.params.fileName;
+    console.log('Raw fileName received:', fileName);
     console.log('Attempting to delete file:', fileName);
     
     const file = bucket.file(fileName);
