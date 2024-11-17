@@ -34,9 +34,12 @@ async function extractText(buffer, mimetype) {
   try {
     if (mimetype === 'application/pdf') {
       const data = await pdfParse(buffer);
+      console.log('PDF text extracted, length:', data.text.length);
       return data.text;
     } else if (mimetype === 'text/plain') {
-      return buffer.toString('utf-8');
+      const text = buffer.toString('utf-8');
+      console.log('Text file extracted, length:', text.length);
+      return text;
     }
     return '';
   } catch (error) {
@@ -59,11 +62,6 @@ try {
 }
 
 const bucket = storage.bucket(BUCKET_NAME);
-
-// Test route
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Server is running!' });
-});
 
 // Google Auth route
 app.post('/api/auth/google', async (req, res) => {
@@ -103,24 +101,25 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     const extractedText = await extractText(req.file.buffer, req.file.mimetype);
     console.log('Extracted text length:', extractedText.length);
 
-    const filename = Date.now() + '-' + encodeURIComponent(req.file.originalname);
-    const file = bucket.file(filename);
+    const timestamp = Date.now();
+    const safeFileName = `${timestamp}-${req.file.originalname}`;
+    const file = bucket.file(safeFileName);
 
-    // Guardar archivo con metadata
+    // Subir archivo
     await file.save(req.file.buffer, {
       metadata: {
         contentType: req.file.mimetype,
-        metadata: {
-          extractedText: extractedText
-        }
-      },
-      public: true
+        extractedText: extractedText // Guardar texto extraído en metadata
+      }
     });
 
-    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${filename}`;
+    // Hacer archivo público
+    await file.makePublic();
+
+    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(safeFileName)}`;
 
     const documentInfo = {
-      id: filename,
+      id: safeFileName,
       name: req.file.originalname,
       type: req.file.mimetype,
       url: publicUrl,
@@ -143,12 +142,15 @@ app.get('/api/documents', async (req, res) => {
   try {
     const [files] = await bucket.getFiles();
     
-    const documents = files.map(file => ({
-      id: file.name,
-      name: decodeURIComponent(file.name.split('-').slice(1).join('-')),
-      type: file.metadata.contentType,
-      url: `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`,
-      uploadDate: file.metadata.timeCreated
+    const documents = await Promise.all(files.map(async file => {
+      await file.makePublic(); // Asegurar que el archivo sea público
+      return {
+        id: file.name,
+        name: file.name.split('-').slice(1).join('-'),
+        type: file.metadata.contentType,
+        url: `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(file.name)}`,
+        uploadDate: file.metadata.timeCreated
+      };
     }));
 
     res.json({ documents });
@@ -161,14 +163,7 @@ app.get('/api/documents', async (req, res) => {
 // Delete document route
 app.delete('/api/documents/:fileName', async (req, res) => {
   try {
-    const fileName = req.params.fileName;
-    const file = bucket.file(decodeURIComponent(fileName));
-    
-    const [exists] = await file.exists();
-    if (!exists) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
+    const file = bucket.file(req.params.fileName);
     await file.delete();
     res.json({ success: true });
   } catch (error) {
@@ -180,29 +175,32 @@ app.delete('/api/documents/:fileName', async (req, res) => {
 // Chat route
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages, documentIds } = req.body;
+    const { messages } = req.body;
     
-    let documentContext = '';
-    if (documentIds && documentIds.length > 0) {
-      const files = await Promise.all(
-        documentIds.map(async (id) => {
-          const [metadata] = await bucket.file(decodeURIComponent(id)).getMetadata();
-          return metadata;
-        })
-      );
-      
-      documentContext = files
-        .map(metadata => metadata.metadata?.extractedText || '')
-        .filter(text => text.length > 0)
-        .join('\n\n');
-    }
+    // Obtener todos los documentos y su contenido
+    const [files] = await bucket.getFiles();
+    const documentContents = await Promise.all(
+      files.map(async file => {
+        try {
+          const [metadata] = await file.getMetadata();
+          return metadata.extractedText || '';
+        } catch (error) {
+          console.error(`Error getting metadata for file ${file.name}:`, error);
+          return '';
+        }
+      })
+    );
+    
+    const documentContext = documentContents
+      .filter(text => text.length > 0)
+      .join('\n\n');
 
     const systemMessage = {
       role: 'system',
-      content: `You are a helpful assistant analyzing documents. ${
+      content: `You are a helpful assistant analyzing all available documents. ${
         documentContext 
-          ? 'Please use the following document content to answer questions:\n\n' + documentContext
-          : 'No documents are currently selected.'
+          ? 'Please use the following document content to help answer questions:\n\n' + documentContext
+          : 'No document content available.'
       }`
     };
 
@@ -218,7 +216,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Catch all route for React
+// Serve React app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
 });
