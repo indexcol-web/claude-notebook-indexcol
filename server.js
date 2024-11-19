@@ -182,12 +182,15 @@ app.delete('/api/documents/:fileName', async (req, res) => {
   }
 });
 
+
+
 // Chat route 
 // Envio de info al Chat
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
     
+    // Get documents content
     const [files] = await bucket.getFiles();
     const documentContexts = await Promise.all(
       files.map(async file => {
@@ -207,26 +210,34 @@ app.post('/api/chat', async (req, res) => {
 
     const formattedContext = documentContexts
       .filter(doc => doc && doc.content)
-      .map(doc => `### Document: ${doc.name} ###\n\n${doc.content}\n`)
-      .join('\n---\n\n');
+      .map(doc => `=== BEGIN DOCUMENT: ${doc.name} ===\n\n${doc.content}\n\n=== END DOCUMENT ===`)
+      .join('\n\n');
 
     const systemMessage = {
       role: 'system',
-      content: `You are a document analysis assistant specialized in extracting and providing information from documents. Your responsibilities:
+      content: `You are an advanced document analysis AI with capabilities similar to NotebookLM. Your core functions:
 
-1. Analyze and understand the content of all provided documents
-2. Answer questions based SOLELY on the information contained in these documents
-3. If a specific document is mentioned in the question, focus on that document
-4. If requested information is not in the documents, clearly state that
-5. Always respond in the same language the question was asked in
+1. CONTEXT AWARENESS: You have access to these documents:
+${documentContexts.filter(doc => doc).map(doc => `- ${doc.name}`).join('\n')}
 
-Available documents:\n\n${formattedContext}`
+2. DOCUMENT BOUNDARIES: Each document is clearly marked with BEGIN and END tags. Stay within these boundaries when answering.
+
+3. ANSWERING PROTOCOL:
+- ALWAYS scan ALL documents before answering
+- Respond in the same language as the question
+- For document-specific questions, cite relevant parts
+- If information isn't in the documents, say "I can only find information about [list relevant documents]. Your question isn't covered in these documents."
+- Never fabricate or assume information
+
+4. GROUNDING: Base ALL responses strictly on document content. If asked about topics outside the documents, acknowledge the documents you have and explain you can't speak to other topics.
+
+Here are your source documents:\n\n${formattedContext}`
     };
 
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
-      model: "gpt-3.5-turbo",
-      temperature: 0.5,
+      model: "gpt-4", // Upgraded to GPT-4
+      temperature: 0.3, // Lower temperature for more focused responses
       max_tokens: 2000
     });
 
