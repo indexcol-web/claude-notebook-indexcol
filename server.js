@@ -92,6 +92,7 @@ app.post('/api/auth/google', async (req, res) => {
 });
 
 // Upload route
+// Modificar la ruta de subida
 app.post('/api/upload', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) {
@@ -105,17 +106,15 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     const safeFileName = `${timestamp}-${req.file.originalname}`;
     const file = bucket.file(safeFileName);
 
-    // Subir archivo
+    // Subir archivo con metadata
     await file.save(req.file.buffer, {
       metadata: {
         contentType: req.file.mimetype,
-        extractedText: extractedText // Guardar texto extraído en metadata
+        extractedText: extractedText
       }
     });
 
-    // Hacer archivo público
-    await file.makePublic();
-
+    // Construir URL usando el formato público del bucket
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(safeFileName)}`;
 
     const documentInfo = {
@@ -136,6 +135,8 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     res.status(500).json({ error: 'Error uploading file' });
   }
 });
+
+
 
 // Get documents route
 app.get('/api/documents', async (req, res) => {
