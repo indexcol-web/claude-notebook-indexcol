@@ -182,41 +182,45 @@ app.delete('/api/documents/:fileName', async (req, res) => {
   }
 });
 
-// Chat route
+// Chat route 
+// Envio de info al Chat
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
     
-    // Obtener todos los documentos y su contenido
+    // Obtener documentos y su contenido
     const [files] = await bucket.getFiles();
-    const documentContents = await Promise.all(
+    const documentContexts = await Promise.all(
       files.map(async file => {
         try {
           const [metadata] = await file.getMetadata();
-          return metadata.extractedText || '';
+          return {
+            name: file.name.split('-').slice(1).join('-'),
+            content: metadata.extractedText || ''
+          };
         } catch (error) {
           console.error(`Error getting metadata for file ${file.name}:`, error);
-          return '';
+          return null;
         }
       })
     );
-    
-    const documentContext = documentContents
-      .filter(text => text.length > 0)
-      .join('\n\n');
+
+    // Filtrar y formatear el contexto
+    const formattedContext = documentContexts
+      .filter(doc => doc && doc.content)
+      .map(doc => `Document: ${doc.name}\n${doc.content}`)
+      .join('\n\n---\n\n');
 
     const systemMessage = {
       role: 'system',
-      content: `You are a helpful assistant analyzing all available documents. ${
-        documentContext 
-          ? 'Please use the following document content to help answer questions:\n\n' + documentContext
-          : 'No document content available.'
-      }`
+      content: `You are a helpful assistant analyzing these documents:\n\n${formattedContext || 'No documents available.'}`
     };
 
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
       model: "gpt-3.5-turbo",
+      temperature: 0.7,
+      max_tokens: 2000,
     });
 
     res.json(completion.choices[0]);
@@ -225,6 +229,8 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
 
 // Serve React app
 app.get('*', (req, res) => {
