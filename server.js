@@ -186,9 +186,14 @@ app.delete('/api/documents/:fileName', async (req, res) => {
 
 // Chat route 
 // Envio de info al Chat
+// En server.js
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, model = 'gpt-3.5-turbo' } = req.body; // Default a gpt-3.5-turbo
+    
+    // Reset del historial para obtener contexto fresco
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    const lastUserMessage = userMessages[userMessages.length - 1];
     
     const [files] = await bucket.getFiles();
     const documentContexts = await Promise.all(
@@ -226,21 +231,15 @@ Critical Instructions:
    - Cite specific details from the documents
    - Respond in the same language as the question
    - If information isn't in the documents, say "I don't have that information in the available documents"
-   - NEVER dismiss the documents as examples or placeholder text
 
 3. Document content is clearly marked between BEGIN and END tags. Everything between these tags is valid content that you should use to answer questions.
-
-4. For each question:
-   - First, identify which document(s) contain relevant information
-   - Then, extract and present the specific information requested
-   - If asked about a specific document, focus on that document but verify you can access its content
 
 Here are the source documents with their full content:\n\n${formattedContext}`
     };
 
     const completion = await openai.chat.completions.create({
-      messages: [systemMessage, ...messages],
-      model: "gpt-3.5-turbo",
+      messages: [systemMessage, { role: 'user', content: lastUserMessage.content }],
+      model: model,
       temperature: 0.3,
       max_tokens: 2000
     });
