@@ -145,22 +145,27 @@ app.get('/api/documents', async (req, res) => {
     
     const documents = await Promise.all(files.map(async (file) => {
       const [metadata] = await file.getMetadata();
+      const originalName = decodeURIComponent(
+        file.name.split('-').slice(1).join('-')
+      );
+      
       return {
         id: file.name,
-        name: file.name.split('-').slice(1).join('-'), // Remover timestamp del nombre
+        name: originalName,
         type: metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(file.name)}`,
         uploadDate: metadata.timeCreated
       };
     }));
 
-    console.log('Documents retrieved:', documents.length);
     res.json({ documents });
   } catch (error) {
     console.error('Error getting documents:', error);
     res.status(500).json({ error: 'Error retrieving documents' });
   }
 });
+
+
 
 // Delete document route
 app.delete('/api/documents/:fileName', async (req, res) => {
