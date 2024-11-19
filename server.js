@@ -188,14 +188,14 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
     
-    // Obtener documentos y su contenido
     const [files] = await bucket.getFiles();
     const documentContexts = await Promise.all(
       files.map(async file => {
         try {
           const [metadata] = await file.getMetadata();
+          const fileName = file.name.split('-').slice(1).join('-');
           return {
-            name: file.name.split('-').slice(1).join('-'),
+            name: decodeURIComponent(fileName),
             content: metadata.extractedText || ''
           };
         } catch (error) {
@@ -205,22 +205,29 @@ app.post('/api/chat', async (req, res) => {
       })
     );
 
-    // Filtrar y formatear el contexto
     const formattedContext = documentContexts
       .filter(doc => doc && doc.content)
-      .map(doc => `Document: ${doc.name}\n${doc.content}`)
-      .join('\n\n---\n\n');
+      .map(doc => `### Document: ${doc.name} ###\n\n${doc.content}\n`)
+      .join('\n---\n\n');
 
     const systemMessage = {
       role: 'system',
-      content: `You are a helpful assistant analyzing these documents:\n\n${formattedContext || 'No documents available.'}`
+      content: `You are a document analysis assistant specialized in extracting and providing information from documents. Your responsibilities:
+
+1. Analyze and understand the content of all provided documents
+2. Answer questions based SOLELY on the information contained in these documents
+3. If a specific document is mentioned in the question, focus on that document
+4. If requested information is not in the documents, clearly state that
+5. Always respond in the same language the question was asked in
+
+Available documents:\n\n${formattedContext}`
     };
 
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
       model: "gpt-3.5-turbo",
-      temperature: 0.7,
-      max_tokens: 2000,
+      temperature: 0.5,
+      max_tokens: 2000
     });
 
     res.json(completion.choices[0]);
