@@ -100,26 +100,26 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     }
 
     const extractedText = await extractText(req.file.buffer, req.file.mimetype);
-    console.log('Extracted text length:', extractedText.length);
-
     const timestamp = Date.now();
-    const safeFileName = `${timestamp}-${req.file.originalname}`;
+    
+    // Codificar el nombre del archivo para almacenamiento
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    const safeFileName = `${timestamp}-${originalName}`;
     const file = bucket.file(safeFileName);
 
-    // Subir archivo con metadata
     await file.save(req.file.buffer, {
       metadata: {
         contentType: req.file.mimetype,
-        extractedText: extractedText
+        extractedText: extractedText,
+        originalName: originalName // Guardar nombre original en metadata
       }
     });
 
-    // Construir URL usando el formato público del bucket
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(safeFileName)}`;
 
     const documentInfo = {
       id: safeFileName,
-      name: req.file.originalname,
+      name: originalName,
       type: req.file.mimetype,
       url: publicUrl,
       uploadDate: new Date()
@@ -138,17 +138,20 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
 
 
 
+
 // Get documents route
+// Ruta de listado modificada
 app.get('/api/documents', async (req, res) => {
   try {
     const [files] = await bucket.getFiles();
     
     const documents = await Promise.all(files.map(async (file) => {
       const [metadata] = await file.getMetadata();
-      const originalName = decodeURIComponent(
-        file.name.split('-').slice(1).join('-')
-      );
       
+      // Usar el nombre original de metadata o decodificar del nombre del archivo
+      const originalName = metadata.originalName || 
+        Buffer.from(file.name.split('-').slice(1).join('-'), 'latin1').toString('utf8');
+
       return {
         id: file.name,
         name: originalName,
