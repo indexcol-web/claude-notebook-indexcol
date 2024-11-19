@@ -148,13 +148,13 @@ app.get('/api/documents', async (req, res) => {
     const documents = await Promise.all(files.map(async (file) => {
       const [metadata] = await file.getMetadata();
       
-      // Usar el nombre original de metadata o decodificar del nombre del archivo
-      const originalName = metadata.originalName || 
-        Buffer.from(file.name.split('-').slice(1).join('-'), 'latin1').toString('utf8');
-
+      // Obtener el nombre original del archivo
+      const timestampPart = file.name.split('-')[0];
+      const originalNamePart = file.name.slice(timestampPart.length + 1);
+      
       return {
         id: file.name,
-        name: originalName,
+        name: decodeURIComponent(originalNamePart),
         type: metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(file.name)}`,
         uploadDate: metadata.timeCreated
