@@ -7,6 +7,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
 
   useEffect(() => {
     const google = window.google;
@@ -42,8 +43,6 @@ function App() {
     }
   };
 
-  
-  // Agregar esta nueva función para manejar la tecla Enter
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -51,7 +50,6 @@ function App() {
     }
   };
 
-  
   const sendMessage = async () => {
     if (!input.trim() || !user) return;
 
@@ -61,7 +59,8 @@ function App() {
 
     try {
       const response = await axios.post('/api/chat', {
-        messages: newMessages
+        messages: newMessages,
+        model: selectedModel
       });
       
       if (response.data.message) {
@@ -114,6 +113,19 @@ function App() {
 
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-bold mb-4">Chat</h2>
+            
+            {/* Selector de modelo */}
+            <div className="mb-4">
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="p-2 border rounded w-full"
+              >
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                <option value="gpt-4">GPT-4</option>
+              </select>
+            </div>
+
             <div className="h-96 overflow-y-auto mb-4">
               {messages.map((message, index) => (
                 <div key={index} className={`p-2 mb-2 rounded ${
@@ -126,21 +138,20 @@ function App() {
 
             <div className="flex space-x-2">
               <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  className="flex-1 p-2 border rounded"
-                  placeholder="Type your message..."
-                />
-                <button
-                  onClick={sendMessage}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
-                >
-                  Send
-                </button>
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                className="flex-1 p-2 border rounded"
+                placeholder="Type your message..."
+              />
+              <button
+                onClick={sendMessage}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
+              >
+                Send
+              </button>
             </div>
-    
           </div>
         </div>
       </main>
