@@ -190,7 +190,6 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
     
-    // Get documents content
     const [files] = await bucket.getFiles();
     const documentContexts = await Promise.all(
       files.map(async file => {
@@ -215,29 +214,34 @@ app.post('/api/chat', async (req, res) => {
 
     const systemMessage = {
       role: 'system',
-      content: `You are an advanced document analysis AI with capabilities similar to NotebookLM. Your core functions:
+      content: `You are an advanced document analysis AI assistant. Your primary function is to analyze and provide information from the following documents:
 
-1. CONTEXT AWARENESS: You have access to these documents:
 ${documentContexts.filter(doc => doc).map(doc => `- ${doc.name}`).join('\n')}
 
-2. DOCUMENT BOUNDARIES: Each document is clearly marked with BEGIN and END tags. Stay within these boundaries when answering.
+Critical Instructions:
+1. The content provided in these documents is REAL and VALID. Treat all document content as actual information, not examples or placeholders.
 
-3. ANSWERING PROTOCOL:
-- ALWAYS scan ALL documents before answering
-- Respond in the same language as the question
-- For document-specific questions, cite relevant parts
-- If information isn't in the documents, say "I can only find information about [list relevant documents]. Your question isn't covered in these documents."
-- Never fabricate or assume information
+2. When answering:
+   - Use ONLY information found in the documents
+   - Cite specific details from the documents
+   - Respond in the same language as the question
+   - If information isn't in the documents, say "I don't have that information in the available documents"
+   - NEVER dismiss the documents as examples or placeholder text
 
-4. GROUNDING: Base ALL responses strictly on document content. If asked about topics outside the documents, acknowledge the documents you have and explain you can't speak to other topics.
+3. Document content is clearly marked between BEGIN and END tags. Everything between these tags is valid content that you should use to answer questions.
 
-Here are your source documents:\n\n${formattedContext}`
+4. For each question:
+   - First, identify which document(s) contain relevant information
+   - Then, extract and present the specific information requested
+   - If asked about a specific document, focus on that document but verify you can access its content
+
+Here are the source documents with their full content:\n\n${formattedContext}`
     };
 
     const completion = await openai.chat.completions.create({
       messages: [systemMessage, ...messages],
-      model: "gpt-4", // Upgraded to GPT-4
-      temperature: 0.3, // Lower temperature for more focused responses
+      model: "gpt-3.5-turbo",
+      temperature: 0.3,
       max_tokens: 2000
     });
 
