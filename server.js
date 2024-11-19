@@ -143,21 +143,22 @@ app.get('/api/documents', async (req, res) => {
   try {
     const [files] = await bucket.getFiles();
     
-    const documents = await Promise.all(files.map(async file => {
-      await file.makePublic(); // Asegurar que el archivo sea público
+    const documents = await Promise.all(files.map(async (file) => {
+      const [metadata] = await file.getMetadata();
       return {
         id: file.name,
-        name: file.name.split('-').slice(1).join('-'),
-        type: file.metadata.contentType,
+        name: file.name.split('-').slice(1).join('-'), // Remover timestamp del nombre
+        type: metadata.contentType,
         url: `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(file.name)}`,
-        uploadDate: file.metadata.timeCreated
+        uploadDate: metadata.timeCreated
       };
     }));
 
+    console.log('Documents retrieved:', documents.length);
     res.json({ documents });
   } catch (error) {
     console.error('Error getting documents:', error);
-    res.status(500).json({ error: 'Error getting documents' });
+    res.status(500).json({ error: 'Error retrieving documents' });
   }
 });
 
