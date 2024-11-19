@@ -42,6 +42,16 @@ function App() {
     }
   };
 
+  
+  // Agregar esta nueva función para manejar la tecla Enter
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  
   const sendMessage = async () => {
     if (!input.trim() || !user) return;
 
@@ -116,19 +126,21 @@ function App() {
 
             <div className="flex space-x-2">
               <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 p-2 border rounded"
-                placeholder="Type your message..."
-              />
-              <button
-                onClick={sendMessage}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
-              >
-                Send
-              </button>
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  className="flex-1 p-2 border rounded"
+                  placeholder="Type your message..."
+                />
+                <button
+                  onClick={sendMessage}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
+                >
+                  Send
+                </button>
             </div>
+    
           </div>
         </div>
       </main>
