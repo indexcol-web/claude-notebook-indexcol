@@ -41,25 +41,25 @@ function DocumentUpload() {
       });
 
       if (response.data.success) {
-        await fetchDocuments(); // Recargar la lista después de subir
+        await fetchDocuments();
         setSelectedFile(null);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Error uploading document. Please try again.');
+      alert('Error al subir el documento. Por favor intente nuevamente.');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDelete = async (doc) => {
-    if (window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+    if (window.confirm(`¿Está seguro que desea eliminar "${doc.name}"?`)) {
       try {
         await axios.delete(`/api/documents/${doc.id}`);
-        await fetchDocuments(); // Recargar la lista después de borrar
+        await fetchDocuments();
       } catch (error) {
         console.error('Error deleting document:', error);
-        alert('Error deleting document. Please try again.');
+        alert('Error al eliminar el documento. Por favor intente nuevamente.');
       }
     }
   };
@@ -78,23 +78,23 @@ function DocumentUpload() {
           disabled={!selectedFile || uploading}
           className="mt-2 bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:bg-gray-300"
         >
-          {uploading ? 'Uploading...' : 'Upload Document'}
+          {uploading ? 'Subiendo...' : 'Subir Documento'}
         </button>
       </div>
 
       {documents.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-lg font-semibold mb-2">Your Documents</h3>
+          <h3 className="text-lg font-semibold mb-2">Tus Documentos</h3>
           <div className="space-y-2">
             {loading ? (
-              <p>Loading documents...</p>
+              <p>Cargando documentos...</p>
             ) : (
               documents.map((doc) => (
                 <div key={doc.id} className="border rounded p-4 flex justify-between items-start">
                   <div>
                     <h4 className="font-medium">{doc.name}</h4>
                     <p className="text-sm text-gray-500">
-                      Uploaded on {new Date(doc.uploadDate).toLocaleDateString()}
+                      Subido el {new Date(doc.uploadDate).toLocaleDateString()}
                     </p>
                     <a
                       href={doc.url}
@@ -102,14 +102,14 @@ function DocumentUpload() {
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:text-blue-700 text-sm mt-2 inline-block"
                     >
-                      View Document
+                      Ver Documento
                     </a>
                   </div>
                   <button
                     onClick={() => handleDelete(doc)}
                     className="text-red-500 hover:text-red-700 text-sm"
                   >
-                    Delete
+                    Eliminar
                   </button>
                 </div>
               ))
