@@ -70,7 +70,7 @@ function App() {
       console.error('Error sending message:', error);
       setMessages([...newMessages, { 
         role: 'assistant', 
-        content: 'Sorry, there was an error processing your request.' 
+        content: 'Lo siento, hubo un error al procesar tu solicitud.' 
       }]);
     }
   };
@@ -79,8 +79,8 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold mb-4">Welcome to Claude Notebook</h1>
-          <p className="mb-4">Please login to continue</p>
+          <h1 className="text-2xl font-bold mb-4">Bienvenido a Claude Notebook</h1>
+          <p className="mb-4">Por favor inicia sesión para continuar</p>
           <div id="googleBtn"></div>
         </div>
       </div>
@@ -99,23 +99,26 @@ function App() {
             onClick={() => setUser(null)}
             className="text-sm text-gray-600 hover:text-gray-800"
           >
-            Logout
+            Cerrar Sesión
           </button>
         </div>
       </header>
 
       <main className="container mx-auto p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-xl font-bold mb-4">Document Analysis</h2>
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-4 bg-white rounded-lg shadow p-4">
+            <h2 className="text-xl font-bold mb-4">Análisis de Documentos</h2>
             <DocumentUpload />
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="col-span-8 bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-bold mb-4">Chat</h2>
             
             {/* Selector de modelo */}
             <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Modelo de IA
+              </label>
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
@@ -123,14 +126,18 @@ function App() {
               >
                 <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
                 <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4o-mini">GPT-4 Mini</option>
               </select>
             </div>
 
-            <div className="h-96 overflow-y-auto mb-4">
+            <div className="h-[calc(100vh-400px)] overflow-y-auto mb-4 border rounded p-4">
               {messages.map((message, index) => (
                 <div key={index} className={`p-2 mb-2 rounded ${
                   message.role === 'user' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
+                  <div className="text-sm text-gray-600 mb-1">
+                    {message.role === 'user' ? 'Tú' : 'Asistente'}:
+                  </div>
                   {message.content}
                 </div>
               ))}
@@ -143,13 +150,13 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
                 className="flex-1 p-2 border rounded"
-                placeholder="Type your message..."
+                placeholder="Escribe tu mensaje..."
               />
               <button
                 onClick={sendMessage}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
               >
-                Send
+                Enviar
               </button>
             </div>
           </div>
