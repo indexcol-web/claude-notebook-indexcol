@@ -131,17 +131,27 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     const safeFileName = `${timestamp}-${req.file.originalname}`;
     const file = bucket.file(safeFileName);
 
-    // Guardar archivo con metadata
-    await file.save(req.file.buffer, {
+    // Crear metadata como objeto separado
+    const metadata = {
+      contentType: req.file.mimetype,
       metadata: {
-        contentType: req.file.mimetype,
         extractedText: extractedText,
         originalName: req.file.originalname,
-        timestamp: timestamp
+        timestamp: timestamp.toString()
       }
-    });
+    };
 
-    console.log('Archivo guardado en bucket:', safeFileName);
+    // Primero guardar el archivo
+    await file.save(req.file.buffer);
+    
+    // Luego establecer metadata
+    await file.setMetadata(metadata);
+
+    console.log('Archivo guardado en bucket con metadata:', {
+      filename: safeFileName,
+      contentType: metadata.contentType,
+      textLength: extractedText.length
+    });
 
     const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(safeFileName)}`;
 
@@ -167,6 +177,7 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
     });
   }
 });
+
 
 
 
@@ -219,6 +230,7 @@ app.delete('/api/documents/:fileName', async (req, res) => {
 // Chat route 
 // Envio de info al Chat
 // Mejorar la ruta del chat para verificar el contenido
+// Y en la ruta del chat, modificar cómo obtenemos el texto:
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages, model = 'gpt-3.5-turbo' } = req.body;
@@ -230,14 +242,17 @@ app.post('/api/chat', async (req, res) => {
           const [metadata] = await file.getMetadata();
           const fileName = file.name.split('-').slice(1).join('-');
           
-          if (!metadata.extractedText) {
+          // Buscar el texto extraído en la estructura correcta de metadata
+          const extractedText = metadata.metadata?.extractedText;
+          
+          if (!extractedText) {
             console.warn(`No hay texto extraído para el documento: ${fileName}`);
             return null;
           }
 
           return {
             name: decodeURIComponent(fileName),
-            content: metadata.extractedText
+            content: extractedText
           };
         } catch (error) {
           console.error(`Error getting metadata for file ${file.name}:`, error);
@@ -245,6 +260,7 @@ app.post('/api/chat', async (req, res) => {
         }
       })
     );
+
 
     // Filtrar documentos sin contenido y loggear información
     const validDocuments = documentContexts.filter(doc => doc && doc.content);
